@@ -4,7 +4,7 @@ import { expect } from 'chai'
 import { TestToken__factory } from '../typechain'
 import { Provider } from '@ethersproject/providers'
 
-describe('test Create2Factory', () => {
+describe.only('test Create2Factory', () => {
   let factory: Create2Factory
   let provider: Provider
   before(async () => {
@@ -19,11 +19,17 @@ describe('test Create2Factory', () => {
 
   it('should deploy to known address', async () => {
     const initCode = TestToken__factory.bytecode
-
     const addr = Create2Factory.getDeployedAddress(initCode, 0)
+    const res = await provider.getCode(addr)
+
+    // 0x
+    console.log('getCode res', res)
 
     expect(await provider.getCode(addr).then(code => code.length)).to.equal(2)
     await factory.deploy(initCode, 0)
+
+    // const res1 = await provider.getCode(addr)
+    // console.log('getCode res1', res1)
     expect(await provider.getCode(addr).then(code => code.length)).to.gt(100)
   })
   it('should deploy to different address based on salt', async () => {
