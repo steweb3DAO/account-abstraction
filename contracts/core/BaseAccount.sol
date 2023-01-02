@@ -40,8 +40,11 @@ abstract contract BaseAccount is IAccount {
         _requireFromEntryPoint();
         deadline = _validateSignature(userOp, userOpHash, aggregator);
         if (userOp.initCode.length == 0) {
+            // 说明账户已经存在，不需要创建了，否则length应该 != 0
             _validateAndUpdateNonce(userOp);
         }
+        // 由用户的钱包（account）来支付gasfee，转给entrypoint
+        // 最终的交易是由entrypoint来调用的，花费gasfee，所以钱包要进行转账补偿
         _payPrefund(missingAccountFunds);
     }
 
