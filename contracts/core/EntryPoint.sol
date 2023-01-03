@@ -428,6 +428,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         }
         paymasterInfo.deposit = uint112(deposit - requiredPreFund);
         try IPaymaster(paymaster).validatePaymasterUserOp{gas : gas}(op, opInfo.userOpHash, requiredPreFund) returns (bytes memory _context, uint256 _deadline){
+            // context: value to send to a postOp duke
             context = _context;
             deadline = _deadline;
         } catch Error(string memory revertReason) {
@@ -495,6 +496,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         // (used only by off-chain simulateValidation)
         numberMarker();
 
+        // 指定paymaster的时候，account校验的时候不需要向entrypoint转钱
         bytes memory context;
         if (mUserOp.paymaster != address(0)) {
             (context, paymasterDeadline) = _validatePaymasterPrepayment(opIndex, userOp, outOpInfo, requiredPreFund, gasUsedByValidateAccountPrepayment);
@@ -506,6 +508,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             revert FailedOp(opIndex, mUserOp.paymaster, "AA40 over verificationGasLimit");
         }
         outOpInfo.prefund = requiredPreFund;
+        // 默认是0，当paymaster不为0的时候，会进行offset
         outOpInfo.contextOffset = getOffsetOfMemoryBytes(context);
         outOpInfo.preOpGas = preGas - gasleft() + userOp.preVerificationGas;
     }
