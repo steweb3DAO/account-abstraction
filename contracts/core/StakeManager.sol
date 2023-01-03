@@ -10,6 +10,8 @@ import "../interfaces/IStakeManager.sol";
  * deposit is just a balance used to pay for UserOperations (either by a paymaster or an account)
  * stake is value locked for at least "unstakeDelay" by a paymaster.
  */
+
+// 这个合约会被Entrypoint继承
 abstract contract StakeManager is IStakeManager {
 
     /// maps paymaster to their deposits and stakes
@@ -20,6 +22,7 @@ abstract contract StakeManager is IStakeManager {
     }
 
     // internal method to return just the stake info
+    // 仅这里一处使用了StakeInfo结构，这两个字断也是DepositInfo的局部字段 
     function getStakeInfo(address addr) internal view returns (StakeInfo memory info) {
         DepositInfo storage depositInfo = deposits[addr];
         info.stake = depositInfo.stake;
@@ -72,6 +75,18 @@ abstract contract StakeManager is IStakeManager {
         );
         emit StakeLocked(msg.sender, stake, _unstakeDelaySec);
     }
+
+
+    /**
+      GROUP1: 
+        1. depositTo 
+        2. withdrawTo
+      GROUP2: 
+        1. 先调用 depositTo 进行存入ETH，更新 DepositInfo结构，更新存储信息
+        2. 调用addStake，再次更新DepositInfo结构，这次更新里面的stake信息
+        3. 调用unlockStake，更新DepositInfo结构，更新延迟解锁时间
+        4. 调用withdrawStake，更新DepositInfo结构，将ETH转出到指定地址
+    */
 
     /**
      * attempt to unlock the stake.

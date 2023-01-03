@@ -53,9 +53,12 @@ contract EntryPoint is IEntryPoint, StakeManager {
         uint256 preGas = gasleft();
         bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
 
+        // try catch语法，在抛出异常时，运行指定逻辑
+        // innerHandleOp 内部也会统计preOpGas等，并且调用 _handlePostOp
         try this.innerHandleOp(userOp.callData, opInfo, context) returns (uint256 _actualGasCost) {
             collected = _actualGasCost;
         } catch {
+            // 运行前的gas余额 - 当前的gas余额 + 前置paymaster校验环节的gas，在这里一次性统计出来，在后面补偿
             uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
             collected = _handlePostOp(opIndex, IPaymaster.PostOpMode.postOpReverted, opInfo, context, actualGas);
         }
@@ -81,6 +84,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             _validateDeadline(i, opInfo, deadline, paymasterDeadline);
         }
 
+        // 消耗的手续费，最终需要用户补偿
         uint256 collected = 0;
 
         for (uint256 i = 0; i < opslen; i++) {
@@ -194,6 +198,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      */
     function innerHandleOp(bytes calldata callData, UserOpInfo memory opInfo, bytes calldata context) external returns (uint256 actualGasCost) {
         uint256 preGas = gasleft();
+        // 权宜之计，既不想让外部调用，又想传递context进来，所以加上下面的require限制
         require(msg.sender == address(this), "AA92 internal call only");
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
 
@@ -492,9 +497,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
             if (context.length > 0) {
                 actualGasCost = actualGas * gasPrice;
                 if (mode != IPaymaster.PostOpMode.postOpReverted) {
+                    // 执行userOpertation失败的时候，会再次执行postOp，此时会进入这个分支
                     IPaymaster(paymaster).postOp{gas : mUserOp.verificationGasLimit}(mode, context, actualGasCost);
                 } else {
                     // solhint-disable-next-line no-empty-blocks
+                    // 在这里会转入ERC20，来补偿paymaster的手续费，见：samples/TokenPaymaster.sol
                     try IPaymaster(paymaster).postOp{gas : mUserOp.verificationGasLimit}(mode, context, actualGasCost) {}
                     catch Error(string memory reason) {
                         revert FailedOp(opIndex, paymaster, reason);

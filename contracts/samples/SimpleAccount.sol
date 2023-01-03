@@ -56,6 +56,7 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
     /**
      * execute a transaction (called directly from owner, not by entryPoint)
      */
+    // 也支持owner直接调用，而不限于entrypoint的调用
     function execute(address dest, uint256 value, bytes calldata func) external {
         _requireFromEntryPointOrOwner();
         _call(dest, value, func);
@@ -104,6 +105,9 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
     }
 
     /// implement template method of BaseAccount
+    /// eip191签名验证
+    /// owner是initialize函数传递进来的，应该是userOperation的那个EOA，这个EOA也是当前Account的Owner
+    /// EOA对userOperation签名，最终在Account中校验，验证成功之后，由entrypoint调用handleOs在Account执行
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address)
     internal override virtual returns (uint256 deadline) {
         bytes32 hash = userOpHash.toEthSignedMessageHash();
@@ -124,6 +128,7 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
     /**
      * check current account deposit in the entryPoint
      */
+    // entrypoint是公用的，里面有个mapping来维护account的存款信息depositInfo
     function getDeposit() public view returns (uint256) {
         return entryPoint().balanceOf(address(this));
     }
