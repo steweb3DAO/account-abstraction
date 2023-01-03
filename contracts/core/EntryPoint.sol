@@ -72,13 +72,20 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * @param ops the operations to execute
      * @param beneficiary the address to receive the fees
      */
+
+    // 这个是没有权限控制的，任何人都可以调用吗？ 是的，具体流程是：
+    // 任何人 -> entryPoint.handleOps(userOps) -> userOps[i].sender.call(userOps[i].calldata)
+    // 即：任何人都可以调用handleOps，这个函数内部会调用account的最终执行逻辑
     function handleOps(UserOperation[] calldata ops, address payable beneficiary) public {
 
         uint256 opslen = ops.length;
+        // 注意这里是另外一个结构数组，里面的数据是内存数据
+        // 因为在handleOps阶段，用户的签名已经校验过了，这里只负责执行
         UserOpInfo[] memory opInfos = new UserOpInfo[](opslen);
 
     unchecked {
         for (uint256 i = 0; i < opslen; i++) {
+            // opInfo是空的，在下面的 _validatePrepayment 中完成复制，并且数据已经复制到opInfo中
             UserOpInfo memory opInfo = opInfos[i];
             (uint256 deadline, uint256 paymasterDeadline,) = _validatePrepayment(i, ops[i], opInfo, address(0));
             _validateDeadline(i, opInfo, deadline, paymasterDeadline);
@@ -88,6 +95,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
         uint256 collected = 0;
 
         for (uint256 i = 0; i < opslen; i++) {
+            // calldata依然从原始的ops中获取
+            // opInfos中已经被赋值了（已经使用demo验证过了）
             collected += _executeUserOp(i, ops[i], opInfos[i]);
         }
 
@@ -153,6 +162,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         _compensate(beneficiary, collected);
     }
 
+    /// 这个是给链下程序调用的
     function simulateHandleOp(UserOperation calldata op) external override {
 
         UserOpInfo memory opInfo;
@@ -173,6 +183,22 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
 
     //a memory copy of UserOp fields (except that dynamic byte arrays: callData, initCode and signature
+    //   struct UserOperation {
+
+    //     address sender;
+    //     uint256 nonce;
+    //     /// bytes initCode;
+    //     /// bytes callData;
+    //     uint256 callGasLimit;
+    //     uint256 verificationGasLimit;
+    //     uint256 preVerificationGas;
+    //     uint256 maxFeePerGas;
+    //     uint256 maxPriorityFeePerGas;
+    // .   paymaster <- 新增的
+    //     /// bytes paymasterAndData;
+    //     /// bytes signature;
+    // }
+
     struct MemoryUserOp {
         address sender;
         uint256 nonce;
@@ -184,6 +210,9 @@ contract EntryPoint is IEntryPoint, StakeManager {
         uint256 maxPriorityFeePerGas;
     }
 
+    // 注意区分这两个结构:
+    // struct UserOperation, 这个是用户需要执行的操作，是标准的结构
+    // struct UserOpInfo, 这个是程序运行中定义的结构，里面有个MemoryUserOp，字段与UserOperation很相似，（缺少动态数据：initCode，calldata，signature等，上面有介绍）
     struct UserOpInfo {
         MemoryUserOp mUserOp;
         bytes32 userOpHash;
@@ -205,6 +234,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         IPaymaster.PostOpMode mode = IPaymaster.PostOpMode.opSucceeded;
         if (callData.length > 0) {
 
+            // 这里是最终调用user的account，执行exec函数，具体细节在callData中
             (bool success,bytes memory result) = address(mUserOp.sender).call{gas : mUserOp.callGasLimit}(callData);
             if (!success) {
                 if (result.length > 0) {
@@ -288,6 +318,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
     // create the sender's contract if needed.
+    // 如果sender的合约不存在，则需要创建，并且创建之后得到的地址要与sender相同
     function _createSenderIfNeeded(uint256 opIndex, UserOpInfo memory opInfo, bytes calldata initCode) internal {
         if (initCode.length != 0) {
             address sender = opInfo.mUserOp.sender;
@@ -322,7 +353,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
         uint256 preGas = gasleft();
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
         address sender = mUserOp.sender;
+        // 这里是创建account的逻辑
         _createSenderIfNeeded(opIndex, opInfo, op.initCode);
+
+        // address private constant SIMULATE_FIND_AGGREGATOR = address(1);
+        // 链下模拟交易走这里，链上的直接跳过
         if (aggregator == SIMULATE_FIND_AGGREGATOR) {
             numberMarker();
 
@@ -345,9 +380,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
         uint256 missingAccountFunds = 0;
         address paymaster = mUserOp.paymaster;
         if (paymaster == address(0)) {
+            // paymaster 为0，说明没有指定paymaster，需要account自己支付，没有垫付
             uint256 bal = balanceOf(sender);
             missingAccountFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
+        // 这个Account在ValidateUserOp的时候会向entrypoint转入eth，并且更新deposits，所以在下面会扣掉 必要的gasfee，重新更新deposit
         try IAccount(sender).validateUserOp{gas : mUserOp.verificationGasLimit}(op, opInfo.userOpHash, aggregator, missingAccountFunds)
         returns (uint256 _deadline) {
             deadline = _deadline;
@@ -434,12 +471,15 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * @param opIndex the index of this userOp into the "opInfos" array
      * @param userOp the userOp to validate
      */
+    // 两个地方会调用这个函数：handleOp or handleAggregatedOps （链上调用），simulateValidation（链下调用）
     function _validatePrepayment(uint256 opIndex, UserOperation calldata userOp, UserOpInfo memory outOpInfo, address aggregator)
     private returns (uint256 deadline, uint256 paymasterDeadline, address actualAggregator) {
 
         uint256 preGas = gasleft();
         MemoryUserOp memory mUserOp = outOpInfo.mUserOp;
         _copyUserOpToMemory(userOp, mUserOp);
+
+        // keccak256(abi.encode(userOp.hash(), address(this), block.chainid));
         outOpInfo.userOpHash = getUserOpHash(userOp);
 
         // validate all numeric values in userOp are well below 128 bit, so they can safely be added
@@ -536,6 +576,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
             //legacy mode (for networks that don't support basefee opcode)
             return maxFeePerGas;
         }
+
+        // block.basefee // TODO duke
         return min(maxFeePerGas, maxPriorityFeePerGas + block.basefee);
     }
     }
@@ -556,6 +598,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
     // this is used as a marker during simulation, as this OP is completely banned from the simulated code of the
     // account and paymaster.
     function numberMarker() internal view {
+        // https://docs.soliditylang.org/en/latest/yul.html#yul duke
+        // number(): current block number
         assembly {mstore(0, number())}
     }
 }
