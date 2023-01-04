@@ -69,6 +69,7 @@ describe('EntryPoint', function () {
 
     entryPoint = await deployEntryPoint()
 
+    // 自己构造的私钥，每次调用后都自动+1维护（hash算法） // EOA
     accountOwner = createAccountOwner();
     ({
       proxy: account,
@@ -388,6 +389,7 @@ describe('EntryPoint', function () {
     })
   })
 
+  // 这个是要执行的业务逻辑，使用account去调用目标合约testCounter的count方法
   describe('without paymaster (account pays in eth)', () => {
     describe('#handleOps', () => {
       let counter: TestCounter
@@ -410,8 +412,8 @@ describe('EntryPoint', function () {
 
       it('account should pay for tx', async function () {
         const op = await fillAndSign({
-          sender: account.address,
-          callData: accountExecFromEntryPoint.data,
+          sender: account.address, // user的Account钱包
+          callData: accountExecFromEntryPoint.data, // 即将调用的目标操作
           verificationGasLimit: 1e6,
           callGasLimit: 1e6
         }, accountOwner, entryPoint)
