@@ -4,39 +4,33 @@ module.exports = {
     es6: true,
     jest: true,
     mocha: true,
-    node: true
+    node: true,
   },
   globals: {
     artifacts: false,
     assert: false,
     contract: false,
-    web3: false
+    web3: false,
   },
-  extends:
-    [
-      'standard-with-typescript'
-    ],
+  extends: ['standard-with-typescript'],
   // This is needed to add configuration to rules with type information
   parser: '@typescript-eslint/parser',
   parserOptions: {
-    project: ['./tsconfig.json']
+    project: ['./tsconfig.json'],
   },
-  ignorePatterns: [
-    '.eslintrc.js',
-    '**/types/truffle-contracts',
-    'coverage',
-    'dist/'
-  ],
+  ignorePatterns: ['.eslintrc.js', '**/types/truffle-contracts', 'coverage', 'dist/'],
   rules: {
     'no-console': 'off',
+    'comma-dangle': 'off',
     '@typescript-eslint/no-var-requires': 'off',
     '@typescript-eslint/return-await': 'off',
     '@typescript-eslint/no-unnecessary-type-assertion': 'off',
-    '@typescript-eslint/require-array-sort-compare': ['error',
+    '@typescript-eslint/require-array-sort-compare': [
+      'error',
       {
-        ignoreStringArrays: true
-      }
-    ]
+        ignoreStringArrays: true,
+      },
+    ],
   },
   overrides: [
     {
@@ -44,19 +38,18 @@ module.exports = {
       rules: {
         '@typescript-eslint/naming-convention': 'off',
         '@typescript-eslint/no-non-null-assertion': 'off',
-        '@typescript-eslint/restrict-template-expressions': 'off'
-      }
+        '@typescript-eslint/restrict-template-expressions': 'off',
+        '@typescript-eslint/space-before-function-paren': 'off',
+      },
     },
     {
-      files: [
-        '**/test/**/*.ts'
-      ],
+      files: ['**/test/**/*.ts'],
       rules: {
         'no-unused-expressions': 'off',
         // chai assertions trigger this rule
         '@typescript-eslint/no-unused-expressions': 'off',
-        '@typescript-eslint/no-non-null-assertion': 'off'
-      }
+        '@typescript-eslint/no-non-null-assertion': 'off',
+      },
     },
     {
       // otherwise it will raise an error in every JavaScript file
@@ -70,10 +63,10 @@ module.exports = {
             allowNumber: true,
             allowBoolean: true,
             allowNullish: true,
-            allowNullable: true
-          }
-        ]
-      }
-    }
-  ]
+            allowNullable: true,
+          },
+        ],
+      },
+    },
+  ],
 }
