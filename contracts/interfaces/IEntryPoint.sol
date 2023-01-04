@@ -22,6 +22,7 @@ interface IEntryPoint is IStakeManager {
      * @param nonce - the nonce value from the request
      * @param actualGasCost - actual amount paid (by account or paymaster) for this UserOperation
      * @param actualGasUsed - total gas used by this UserOperation (including preVerification, creation, validation and execution)
+     * TODO preVerification, creation, validation and execution 这几个什么区别？
      * @param success - true if the sender transaction succeeded, false if reverted.
      */
     event UserOperationEvent(

@@ -4,15 +4,15 @@ pragma solidity ^0.8.12;
 /**
  * manage deposits and stakes.
  * deposit is just a balance used to pay for UserOperations (either by a paymaster or an account)
+ * 存款余额只用于支付 UserOperations (由 paymaster 或 account)
+ * TODO 这个余额是由 paymaster 掌控？
  * stake is value locked for at least "unstakeDelay" by a paymaster.
+ * 被 Paymaster 锁定的质押金
  */
 interface IStakeManager {
+    event Deposited(address indexed account, uint256 totalDeposit);
 
-    event Deposited(
-        address indexed account,
-        uint256 totalDeposit
-    );
-
+    // 取款
     event Withdrawn(
         address indexed account,
         address withdrawAddress,
@@ -27,11 +27,9 @@ interface IStakeManager {
     );
 
     /// Emitted once a stake is scheduled for withdrawal
-    event StakeUnlocked(
-        address indexed account,
-        uint256 withdrawTime
-    );
+    event StakeUnlocked(address indexed account, uint256 withdrawTime);
 
+    // 退出质押
     event StakeWithdrawn(
         address indexed account,
         address withdrawAddress,
@@ -43,6 +41,7 @@ interface IStakeManager {
      * @param staked true if this account is staked as a paymaster
      * @param stake actual amount of ether staked for this paymaster.
      * @param unstakeDelaySec minimum delay to withdraw the stake. must be above the global unstakeDelaySec
+     * 提现的最短时间。必须高于全局参数 unstakeDelaySec
      * @param withdrawTime - first block timestamp where 'withdrawStake' will be callable, or zero if already locked
      * @dev sizes were chosen so that (deposit,staked) fit into one cell (used during handleOps)
      *    and the rest fit into a 2nd cell.
@@ -52,7 +51,7 @@ interface IStakeManager {
      */
     struct DepositInfo {
         uint112 deposit;
-        bool staked;
+        bool staked; // true 是 paymaster 质押的
         uint112 stake;
         uint32 unstakeDelaySec;
         uint64 withdrawTime;
@@ -64,7 +63,9 @@ interface IStakeManager {
         uint256 unstakeDelaySec;
     }
 
-    function getDepositInfo(address account) external view returns (DepositInfo memory info);
+    function getDepositInfo(
+        address account
+    ) external view returns (DepositInfo memory info);
 
     /// return the deposit (for gas payment) of the account
     function balanceOf(address account) external view returns (uint256);
@@ -99,5 +100,8 @@ interface IStakeManager {
      * @param withdrawAddress the address to send withdrawn value.
      * @param withdrawAmount the amount to withdraw.
      */
-    function withdrawTo(address payable withdrawAddress, uint256 withdrawAmount) external;
+    function withdrawTo(
+        address payable withdrawAddress,
+        uint256 withdrawAmount
+    ) external;
 }
