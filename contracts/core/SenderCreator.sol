@@ -15,12 +15,19 @@ contract SenderCreator {
         external
         returns (address sender)
     {
+        // initCode: factory's address + simpleaccount's bytecode
         // 这个initAddress是factory地址
         address initAddress = address(bytes20(initCode[0:20]));
         bytes memory initCallData = initCode[20:];
         bool success;
         /* solhint-disable no-inline-assembly */
         // 这句代码的意思是：调用simpleAcountFactory的方法创建一个simpleAccount
+        /*
+         solidity 的factory.call
+         assembly {
+            call
+         }
+        */
         assembly {
             success := call(
                 gas(), // gaslimit

@@ -4,7 +4,7 @@ import { expect } from 'chai'
 import { TestToken__factory } from '../typechain'
 import { Provider } from '@ethersproject/providers'
 
-describe.only('test Create2Factory', () => {
+describe('test Create2Factory', () => {
   let factory: Create2Factory
   let provider: Provider
   before(async () => {

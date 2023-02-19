@@ -15,7 +15,7 @@ import "./SimpleAccount.sol";
 contract SimpleAccountFactory {
     SimpleAccount public immutable accountImplementation;
 
-    constructor(IEntryPoint _entryPoint){
+    constructor(IEntryPoint _entryPoint) {
         accountImplementation = new SimpleAccount(_entryPoint);
     }
 
@@ -25,28 +25,54 @@ contract SimpleAccountFactory {
      * Note that during UserOperation execution, this method is called only if the account is not deployed.
      * This method returns an existing account address so that entryPoint.getSenderAddress() would work even after account creation
      */
-    function createAccount(address owner, uint salt) public returns (SimpleAccount ret) {
+    function createAccount(address owner, uint256 salt)
+        public
+        returns (SimpleAccount ret)
+    {
+        // 计算出来的地址是Proxy -》implementation是随机的，可升级的 //TODO
         address addr = getAddress(owner, salt);
-        uint codeSize = addr.code.length;
+        // 获得这个地址的code size
+        uint256 codeSize = addr.code.length;
+
         if (codeSize > 0) {
+            // 如果已经部署了，直接返回
             return SimpleAccount(payable(addr));
         }
-        ret = SimpleAccount(payable(new ERC1967Proxy{salt : bytes32(salt)}(
-                address(accountImplementation),
-                abi.encodeCall(SimpleAccount.initialize, (owner))
-            )));
+        ret = SimpleAccount(
+            payable(
+                // new方法会创建一个合约，
+                // 当不指定salt时，底层会调用create
+                // 指定salt参数时，底层会调用create2
+                new ERC1967Proxy{salt: bytes32(salt)}(
+                    address(accountImplementation),
+                    abi.encodeCall(SimpleAccount.initialize, (owner))
+                )
+            )
+        );
     }
 
     /**
      * calculate the counterfactual address of this account as it would be returned by createAccount()
      */
-    function getAddress(address owner, uint salt) public view returns (address) {
-        return Create2.computeAddress(bytes32(salt), keccak256(abi.encodePacked(
-                type(ERC1967Proxy).creationCode,
-                abi.encode(
-                    address(accountImplementation),
-                    abi.encodeCall(SimpleAccount.initialize, (owner))
+    function getAddress(address owner, uint256 salt)
+        public
+        view
+        returns (address)
+    {
+        // salt，
+        // bytecodeHash：由bytecode和参数组成的
+        return
+            Create2.computeAddress(
+                bytes32(salt),
+                keccak256(
+                    abi.encodePacked(
+                        type(ERC1967Proxy).creationCode,
+                        abi.encode(
+                            address(accountImplementation),
+                            abi.encodeCall(SimpleAccount.initialize, (owner))
+                        )
+                    )
                 )
-            )));
+            );
     }
 }

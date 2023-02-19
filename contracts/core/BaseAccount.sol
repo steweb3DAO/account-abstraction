@@ -38,9 +38,13 @@ abstract contract BaseAccount is IAccount {
     function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, address aggregator, uint256 missingAccountFunds)
     external override virtual returns (uint256 deadline) {
         _requireFromEntryPoint();
+        // 需要override
         deadline = _validateSignature(userOp, userOpHash, aggregator);
+
+        // initCode等于0，说明账户已经存在，需要校验nonce
+        // initCode不等于0，说明账户不存在，需要创建，但是不需要校验nonce
         if (userOp.initCode.length == 0) {
-            // 说明账户已经存在，不需要创建了，否则length应该 != 0
+            // 需要override
             _validateAndUpdateNonce(userOp);
         }
         // 由用户的钱包（account）来支付gasfee，转给entrypoint
@@ -86,6 +90,7 @@ abstract contract BaseAccount is IAccount {
      */
     function _payPrefund(uint256 missingAccountFunds) internal virtual {
         if (missingAccountFunds != 0) {
+            // msg.sender是entryPoint，所以资金流为：SimpleAccount -> entryPoint -> handleOps caller(should be the bundler)
             (bool success,) = payable(msg.sender).call{value : missingAccountFunds, gas : type(uint256).max}("");
             (success);
             //ignore failure (its EntryPoint's job to verify, not account.)

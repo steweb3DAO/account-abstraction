@@ -49,13 +49,17 @@ abstract contract StakeManager is IStakeManager {
      * add to the deposit of the given account
      */
     function depositTo(address account) public payable {
+        // 在这里增加
         internalIncrementDeposit(account, msg.value);
+
+        // 此处是为了读取后发事件，使用storage的原因是节约gas
         DepositInfo storage info = deposits[account];
         emit Deposited(account, info.deposit);
     }
 
     /**
      * add to the account's stake - amount and delay
+     * deposit和stake是独立的，stake的eth是用来做paymaster的，有时间锁定
      * any pending unstake is first cancelled.
      * @param _unstakeDelaySec the new lock duration before the deposit can be withdrawn.
      */

@@ -800,11 +800,11 @@ describe('EntryPoint', function () {
         const rcpt = await entryPoint.handleAggregatedOps(aggInfos, beneficiaryAddress, { gasLimit: 3e6 }).then(async ret => ret.wait())
         const events = rcpt.events?.map((ev: Event) => {
           if (ev.event === 'UserOperationEvent') {
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
             return `userOp(${ev.args?.sender})`
           }
           if (ev.event === 'SignatureAggregatorChanged') {
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
             return `agg(${ev.args?.aggregator})`
           } else return null
         }).filter(ev => ev != null)
